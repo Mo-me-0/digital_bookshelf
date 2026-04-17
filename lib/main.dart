@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_filex/open_filex.dart'; // Import open_filex to handle opening files using default system apps
@@ -71,6 +72,43 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// Method to delete the selected file from the device
+  Future<void> _deleteFile() async {
+    if (_selectedFilePath != null) {
+      try {
+        final file = File(_selectedFilePath!);
+        if (await file.exists()) {
+          await file.delete();
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('File deleted successfully')),
+            );
+          }
+          
+          // Clear current file selection selection state
+          setState(() {
+            _selectedFileName = null;
+            _selectedFilePath = null;
+          });
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('File does not exist')),
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Error deleting file: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting file: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,6 +136,16 @@ class _HomePageState extends State<HomePage> {
             ElevatedButton(
               onPressed: _selectedFilePath != null ? _openFile : null,
               child: const Text('Open Selected File'),
+            ),
+            const SizedBox(height: 10),
+            // Button to delete the selected file
+            ElevatedButton(
+              onPressed: _selectedFilePath != null ? _deleteFile : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete Selected File'),
             ),
           ],
         ),

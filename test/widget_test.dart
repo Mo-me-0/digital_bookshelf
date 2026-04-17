@@ -11,20 +11,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:digital_bookshelf/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('App renders correctly smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const MyApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that our app renders the correct title and initial state.
+    expect(find.text('My Bookshelf'), findsOneWidget);
+    expect(find.text('No file selected'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that the buttons are present.
+    expect(find.text('Pick a File'), findsOneWidget);
+    expect(find.text('Open Selected File'), findsOneWidget);
+    expect(find.text('Delete Selected File'), findsOneWidget);
   });
 }
