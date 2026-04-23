@@ -3,7 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_filex/open_filex.dart'; // Import open_filex to handle opening files using default system apps
 
-void main() => runApp(const MyApp());
+import 'package:hive_flutter/hive_flutter.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  await Hive.openBox('bookshelf');
+  runApp(const MyApp());
+}
 
 
 class MyApp extends StatelessWidget {
@@ -30,10 +37,14 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // Store the name of the selected file to display it in the UI
-  String? _selectedFileName;
-  // Store the path of the selected file to open it later
-  String? _selectedFilePath;
+  // Use Hive box for persistent storage
+  final _box = Hive.box('bookshelf');
+
+  // Retrieve the name of the selected file from Hive
+  String? get _selectedFileName => _box.get('selectedFileName');
+  
+  // Retrieve the path of the selected file from Hive
+  String? get _selectedFilePath => _box.get('selectedFilePath');
 
   /// Method to open the file picker dialog and select a file.
   /// 
@@ -47,11 +58,9 @@ class _HomePageState extends State<HomePage> {
     // Check if the user successfully selected a file (returns null if they cancelled the dialog)
     if (result != null) {
       setState(() {
-        // Update the state with both the name and the path of the chosen file.
-        // result.files.single implies we are only handling a single file selection 
-        // (which is the default unless allowMultiple is true).
-        _selectedFileName = result.files.single.name;
-        _selectedFilePath = result.files.single.path;
+        // Update the state and save to Hive for persistence
+        _box.put('selectedFileName', result.files.single.name);
+        _box.put('selectedFilePath', result.files.single.path);
       });
     }
   }
@@ -86,10 +95,10 @@ class _HomePageState extends State<HomePage> {
             );
           }
           
-          // Clear current file selection selection state
+          // Clear current file selection selection state and remove from Hive
           setState(() {
-            _selectedFileName = null;
-            _selectedFilePath = null;
+            _box.delete('selectedFileName');
+            _box.delete('selectedFilePath');
           });
         } else {
           if (mounted) {
