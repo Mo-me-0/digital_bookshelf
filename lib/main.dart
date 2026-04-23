@@ -1,9 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:open_filex/open_filex.dart'; // Import open_filex to handle opening files using default system apps
-
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,7 +10,6 @@ void main() async {
   await Hive.openBox('bookshelf');
   runApp(const MyApp());
 }
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -37,84 +35,37 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // Use Hive box for persistent storage
-  final _box = Hive.box('bookshelf');
+  // Use Hive box for persistent local database storage
+  final Box _box = Hive.box('bookshelf');
 
-  // Retrieve the name of the selected file from Hive
-  String? get _selectedFileName => _box.get('selectedFileName');
-  
-  // Retrieve the path of the selected file from Hive
-  String? get _selectedFilePath => _box.get('selectedFilePath');
-
-  /// Method to open the file picker dialog and select a file.
-  /// 
-  /// The [FilePicker.platform.pickFiles] method by default allows picking
-  /// any file type from the device's native file explorer.
+  /// Method to open the file picker dialog and select a PDF file.
   Future<void> _pickFile() async {
-    // Await the user's file selection. This opens the native OS dialog.
-    // We do not specify allowedExtensions here, so it accepts all files.
-    FilePickerResult? result = await FilePicker.platform.pickFiles();
+    // Await the user's file selection, restricted to PDF files.
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
 
-    // Check if the user successfully selected a file (returns null if they cancelled the dialog)
+    // Check if the user successfully selected a file
     if (result != null) {
-      setState(() {
-        // Update the state and save to Hive for persistence
-        _box.put('selectedFileName', result.files.single.name);
-        _box.put('selectedFilePath', result.files.single.path);
-      });
-    }
-  }
-
-  /// Method to open the selected file using the device's default application
-  Future<void> _openFile() async {
-    // Verify that a file has actually been selected and we have its path
-    if (_selectedFilePath != null) {
-      // Use the open_filex package to open the file at the given path
-      // This delegates to the OS to find an appropriate app to handle this file type
-      final result = await OpenFilex.open(_selectedFilePath!);
+      final String? path = result.files.single.path;
+      final String name = result.files.single.name;
       
-      // We can inspect the result.type to see if it was successful, or handle errors
-      if (result.type != ResultType.done) {
-        // In a real app, you might show a SnackBar or AlertDialog here
-        debugPrint('Error opening file: ${result.message}');
+      if (path != null) {
+        // Save the book entry to the Hive database
+        _box.add({'name': name, 'path': path});
       }
     }
   }
 
-  /// Method to delete the selected file from the device
-  Future<void> _deleteFile() async {
-    if (_selectedFilePath != null) {
-      try {
-        final file = File(_selectedFilePath!);
-        if (await file.exists()) {
-          await file.delete();
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('File deleted successfully')),
-            );
-          }
-          
-          // Clear current file selection selection state and remove from Hive
-          setState(() {
-            _box.delete('selectedFileName');
-            _box.delete('selectedFilePath');
-          });
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('File does not exist')),
-            );
-          }
-        }
-      } catch (e) {
-        debugPrint('Error deleting file: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error deleting file: $e')),
-          );
-        }
-      }
+  /// Method to delete a book from the local database
+  Future<void> _deleteFile(int index) async {
+    await _box.deleteAt(index);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File removed from database')),
+      );
     }
   }
 
@@ -125,40 +76,78 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              _selectedFileName != null
-                  ? 'Selected File: $_selectedFileName'
-                  : 'No file selected',
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _pickFile,
-              child: const Text('Pick a File'),
-            ),
-            const SizedBox(height: 10), // Adding some space between the buttons
-            // Button to open the file, which is disabled (null onPressed) if no file is selected yet
-            ElevatedButton(
-              onPressed: _selectedFilePath != null ? _openFile : null,
-              child: const Text('Open Selected File'),
-            ),
-            const SizedBox(height: 10),
-            // Button to delete the selected file
-            ElevatedButton(
-              onPressed: _selectedFilePath != null ? _deleteFile : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
+      // Use ValueListenableBuilder to reactively update UI when the database changes
+      body: ValueListenableBuilder(
+        valueListenable: _box.listenable(),
+        builder: (context, Box box, _) {
+          if (box.values.isEmpty) {
+            return const Center(
+              child: Text(
+                'Your bookshelf is empty.\nTap + to add a PDF book.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16),
               ),
-              child: const Text('Delete Selected File'),
-            ),
-          ],
-        ),
+            );
+          }
+
+          return ListView.builder(
+            itemCount: box.length,
+            itemBuilder: (context, index) {
+              // Retrieve the book document map from Hive
+              final Map<dynamic, dynamic> book = box.getAt(index);
+              final String name = book['name'];
+              final String path = book['path'];
+
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                child: ListTile(
+                  leading: const Icon(Icons.picture_as_pdf, color: Colors.redAccent),
+                  title: Text(name),
+                  subtitle: const Text('Tap to read'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.grey),
+                    onPressed: () => _deleteFile(index),
+                  ),
+                  onTap: () {
+                    // Navigate to PdfViewerPage when a book is selected
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PdfViewerPage(path: path, name: name),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          );
+        },
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _pickFile,
+        tooltip: 'Add PDF Book',
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+/// A secondary page to view the PDF file natively inside the app
+class PdfViewerPage extends StatelessWidget {
+  final String path;
+  final String name;
+
+  const PdfViewerPage({super.key, required this.path, required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text(name),
+      ),
+      // Render the PDF file
+      body: SfPdfViewer.file(File(path)),
     );
   }
 }
