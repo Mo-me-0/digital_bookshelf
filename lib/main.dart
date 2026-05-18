@@ -1,5 +1,4 @@
-import 'package:digital_bookshelf/models/book_category.dart';
-import 'package:digital_bookshelf/models/book_document.dart';
+import 'package:digital_bookshelf/services/shelf_services.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:digital_bookshelf/screens/home_page.dart';
@@ -9,11 +8,10 @@ void main() async {
   // initialize hive
   await Hive.initFlutter();
   
-  // register the generated adapter for BookCategory and BookDocuments
-  Hive.registerAdapter(BookCategoryAdapter());
-  Hive.registerAdapter(BookDocumentAdapter());
+  // storage manager
+  await ShelfServices.init();
   
-  await Hive.openBox('bookshelf');
+  // start the app
   runApp(const MyApp());
 }
 
