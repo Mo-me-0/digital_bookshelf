@@ -1,4 +1,5 @@
 import 'package:digital_bookshelf/services/shelf_services.dart';
+import 'package:digital_bookshelf/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:digital_bookshelf/screens/home_page.dart';
@@ -22,10 +23,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'My Bookshelf',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.brown),
-      ),
-      home: const HomePage(title: 'My Bookshelf'),
+      theme: AppTheme.light,
+      home: const HomePage(),
     );
   }
 }

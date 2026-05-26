@@ -1,15 +1,14 @@
-import 'dart:io';
 import 'package:digital_bookshelf/models/book_category.dart';
 import 'package:digital_bookshelf/screens/category_detail_page.dart';
-import 'package:digital_bookshelf/services/file_services.dart';
 import 'package:digital_bookshelf/services/shelf_services.dart';
-import 'package:uuid/uuid.dart';
+import 'package:digital_bookshelf/theme/app_theme.dart';
+import 'package:digital_bookshelf/widgets/category_card.dart';
+import 'package:digital_bookshelf/widgets/category_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class HomePage extends StatefulWidget {
-  final String title;
-  const HomePage({super.key, required this.title});
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -21,8 +20,21 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
+        title: Row(
+          children: [
+            const Icon(Icons.auto_stories,
+              size: 22,
+            ),
+            SizedBox(width: 8),
+            const Text('My Bookshelf'),
+          ],
+        ),
+        actions: [
+          IconButton(
+            onPressed: () {},
+            icon: Icon(Icons.search),
+          ),
+        ],
       ),
       
       // Display list of categories
@@ -33,114 +45,143 @@ class _HomePageState extends State<HomePage> {
           final categories = ShelfServices.getCategories();
           
           // if there are no categories
-          if(categories.isEmpty) return Center(child: Text('Your bookshelf is empty.\nTap + to add a category.'),);
+          if(categories.isEmpty) {
+            return Center(
+              child: Text('Your bookshelf is empty.\nTap + to add a category.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16),
+              ),
+            );
+          }
           
-          return ListView.builder(
-            itemCount: categories.length,
-            itemBuilder: (context, index) {
-              final category = categories[index];
-              return Card(
-                child: ListTile(
-                  // go to target category detail page
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (context) => CategoryDetailPage(category: category),
-                    ));
-                  },
-                  leading: category.imagePath != null && File(category.imagePath!).existsSync()
-                    ? Image.file(File(category.imagePath!)) 
-                    : Icon(Icons.image, size: 50,),
-                  title: Text(category.name),
-                  trailing: IconButton(
-                    // remove target category
-                    onPressed: () => ShelfServices.deleteCategory(category.id),
-                    icon: Icon(Icons.delete), 
+          return CustomScrollView(
+            slivers: [
+              // Show total number of categories
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                sliver: SliverToBoxAdapter(
+                  child: Text(
+                    '${categories.length} ${categories.length == 1 ? 'category' : 'categories'}'
                   ),
                 ),
-              );
-            },
-          );
+              ),
+              
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 20,
+                    crossAxisSpacing: 14,
+                    childAspectRatio: 0.62,
+                  ),
+                  
+                  delegate: SliverChildBuilderDelegate(
+                    childCount: categories.length,
+                    (context, index) {
+                      // Access each category
+                      final category = categories[index];
+                      
+                      return CategoryCard(
+                        category: category,
+                        docCount: ShelfServices.countDocuments(category.id), 
+                        onTap: () => _openCategoryDetail(category), 
+                        onLongPress:() => _showOptions(context, category),
+                      );
+                    }
+                  ),
+                ),
+              ),
+            ],
+          ); 
         },
       ),
       
       // Add category button
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddCategory(context),
-        child: Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('New Category'),
       ),
     );
   }
   
   // Add Category Dialog
-  void _showAddCategory(BuildContext context) {
-    final controller = TextEditingController();
-    String? categoryIcon;
+  void _showAddCategory(BuildContext context) {    
     showDialog(
       context: context,
-      builder: (context)  => AlertDialog(
-        title: Text('Add Category'),
-        content: Column(
+      builder: (context)  => StatefulBuilder(
+        builder: (context, setState) => CategoryDialog(),
+      ),
+    );
+  }
+  
+  // To go to next page
+  void _openCategoryDetail(BookCategory category) {
+    Navigator.push(context, 
+      MaterialPageRoute(
+        builder: (contect) => CategoryDetailPage(category: category),
+      ),
+    );
+  }
+  
+  // Options for editing and deleting
+  void _showOptions(BuildContext context, BookCategory category) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // To add an image
-            GestureDetector(
-              onTap: () async {
-                categoryIcon = await FileServices.chooseImage();
-              },
-              child: SizedBox(
-                width: 60,
-                height: 60,
-                child: Icon(
-                  Icons.add_photo_alternate_rounded,
-                  size: 80,
-                ),
+            const SizedBox(height: 8),
+            Container(
+              width: 40, 
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
             
-            SizedBox(height: 20,),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: Icon(Icons.edit),
+              title: Text('Edit Category'),
+              onTap: () => _editCategory(context, category),
+            ),
             
-            // Name field
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('category name:'),
-                TextField(controller: controller),
-              ],
+            ListTile(
+              leading: Icon(Icons.delete,
+                color: AppTheme.error,
+              ),
+              title: Text('Delete Category',
+                style: TextStyle(
+                  color: AppTheme.error,
+                ),
+              ),
+              onTap: () => _deleteCategory(context, category),
             ),
           ],
         ),
-        
-        // Buttons
-        actions: [
-          // Cancel button
-          TextButton(
-            // close the dialog
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          
-          // Add button(Create category)
-          ElevatedButton(
-            onPressed: () {
-              // save the created category to hive
-              ShelfServices.addCategory(
-                // create a category with selected options
-                BookCategory(
-                  id: const Uuid().v4(), // create unique id  
-                  name: controller.text.trim(), 
-                  imagePath: categoryIcon,
-                  colorHex: 'FF6D4C2A', 
-                  createdAt: DateTime.now(),
-                  order: ShelfServices.getCategories().length,
-                )
-              );
-              
-              // close the dialog
-              Navigator.pop(context);
-            },
-            child: const Text("Add"),
-          ),
-        ],
       ),
     );
+  }
+  
+  void _editCategory(BuildContext context, BookCategory category) {
+    Navigator.pop(context);
+    showDialog(
+      context: context,
+      builder: (context) => CategoryDialog(existing: category,),
+    );
+  }
+  
+  // Remove the category
+  void _deleteCategory(BuildContext context, BookCategory category) async {
+    Navigator.pop(context);
+    await ShelfServices.deleteCategory(category.id);
   }
 }
