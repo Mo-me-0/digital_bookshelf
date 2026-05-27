@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:open_filex/open_filex.dart';
 import 'package:digital_bookshelf/models/book_category.dart';
 import 'package:digital_bookshelf/models/book_document.dart';
 import 'package:digital_bookshelf/widgets/confirm_dialog.dart';
@@ -33,8 +35,8 @@ class CategoryDetailPage extends StatelessWidget {
       
       // To add new document
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _addDocument(),
-        tooltip: 'Add PDF Book',
+        onPressed: () => _addDocuments(),
+        tooltip: 'Add Files',
         icon: const Icon(Icons.upload_file_rounded),
         label: const Text('Add Files',
           style: TextStyle(fontWeight: FontWeight.w600),
@@ -77,8 +79,10 @@ class CategoryDetailPage extends StatelessWidget {
           children: [
             // Background image or gradient
             if ( category.imagePath != null &&
-                File(category.imagePath!).existsSync()
-            ) Image.file(File(category.imagePath!), fit: BoxFit.cover,),
+                (kIsWeb || File(category.imagePath!).existsSync())
+            ) kIsWeb
+                ? Image.network(category.imagePath!, fit: BoxFit.cover,)
+                : Image.file(File(category.imagePath!), fit: BoxFit.cover,),
             
             // Overlay for readability
             Container(
@@ -160,15 +164,40 @@ class CategoryDetailPage extends StatelessWidget {
     );
   }
   
-  // Open the document in another page
-  void _openDocument(BuildContext context, BookDocument doc) {
-    // Navigate to PdfViewerPage when a tile is selected
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PdfViewerPage(path: doc.filePath, name: doc.name),
-      ),
-    );
+  // Open the document in another page or external app
+  void _openDocument(BuildContext context, BookDocument doc) async {
+    final fileType = doc.fileType.toLowerCase();
+    if (fileType == 'pdf') {
+      // Navigate to PdfViewerPage when a tile is selected
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PdfViewerPage(path: doc.filePath, name: doc.name),
+        ),
+      );
+    } else {
+      // Open in external app using open_filex
+      try {
+        final result = await OpenFilex.open(doc.filePath);
+        if (!context.mounted) return;
+        if (result.type != ResultType.done) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open file: ${result.message}'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error opening file: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
   
   // Ask confirmation for deleting
@@ -192,25 +221,29 @@ class CategoryDetailPage extends StatelessWidget {
     );
   }
   
-  // Add document
-  void _addDocument() async {
-    // show file picker dialog
-    final file = await FileServices.pickFile();
+  // Add multiple documents
+  void _addDocuments() async {
+    // show file picker dialog to pick multiple files
+    final files = await FileServices.pickMultipleFiles();
     
     // if no file selected
-    if(file == null) return;
+    if(files == null || files.isEmpty) return;
     
-    // save the document in hive
-    ShelfServices.addDocument(
-      BookDocument(
-        id: const Uuid().v4(), // create unique id
-        name: file.name,
-        categoryId: category.id,
-        filePath: file.path ?? '',
-        fileType: file.extension ?? 'other',
-        addedAt: DateTime.now(),
-        fileSizeBytes: file.size,
-      )
-    );
+    for (final file in files) {
+      final ext = file.extension?.toLowerCase() ?? 'other';
+      
+      // save the document in hive
+      ShelfServices.addDocument(
+        BookDocument(
+          id: const Uuid().v4(), // create unique id
+          name: file.name,
+          categoryId: category.id,
+          filePath: file.path ?? '',
+          fileType: ext,
+          addedAt: DateTime.now(),
+          fileSizeBytes: file.size,
+        )
+      );
+    }
   }
 }

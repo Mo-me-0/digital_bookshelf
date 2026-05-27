@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:digital_bookshelf/models/book_category.dart';
 import 'package:digital_bookshelf/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -148,9 +149,13 @@ class _BookWidget extends StatelessWidget{
   Widget _buildCover() {
     // If category has an image show that
     if(category.imagePath != null) {
-      final image = File(category.imagePath!);
-      if(image.existsSync()) {
-        return Image.file(image, fit: BoxFit.cover);
+      if (kIsWeb) {
+        return Image.network(category.imagePath!, fit: BoxFit.cover);
+      } else {
+        final image = File(category.imagePath!);
+        if(image.existsSync()) {
+          return Image.file(image, fit: BoxFit.cover);
+        }
       }
     }
     

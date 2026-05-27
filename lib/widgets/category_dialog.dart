@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:digital_bookshelf/models/book_category.dart';
 import 'package:digital_bookshelf/theme/app_theme.dart';
@@ -87,12 +88,16 @@ class _CategoryDialogState extends State<CategoryDialog> {
                   width: 1.5,
                 ),
               ),
-              child: _categoryIcon != null && File(_categoryIcon!).existsSync()
+              child: _categoryIcon != null && (kIsWeb || File(_categoryIcon!).existsSync())
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.file(File(_categoryIcon!),
-                      fit: BoxFit.cover,
-                    ),
+                    child: kIsWeb
+                        ? Image.network(_categoryIcon!,
+                            fit: BoxFit.cover,
+                          )
+                        : Image.file(File(_categoryIcon!),
+                            fit: BoxFit.cover,
+                          ),
                   )
                 
                 : Column(
