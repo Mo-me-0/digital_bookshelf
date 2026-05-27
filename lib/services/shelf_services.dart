@@ -40,10 +40,14 @@ class ShelfServices {
   static ValueListenable<Box<BookCategory>> get categoriesListnable 
     => _categories.listenable();
   
-  // To get all categories sorted by their created date
+  // To get all categories sorted by their order property, falling back to createdAt
   static List<BookCategory> getCategories(){
     return _categories.values.toList()
-    ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    ..sort((a, b) {
+      final cmp = a.order.compareTo(b.order);
+      if (cmp != 0) return cmp;
+      return a.createdAt.compareTo(b.createdAt);
+    });
   }
   
   // To add new category to category storage box
