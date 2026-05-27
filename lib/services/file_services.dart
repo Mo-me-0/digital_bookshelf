@@ -2,17 +2,18 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 
 class FileServices {
-  // Method to open the file picker dialog and select a PDF file.
-  static Future<PlatformFile?> pickFile() async {
-    // Await the user's file selection, restricted to PDF files.
+  // Method to open the file picker dialog and select multiple files.
+  static Future<List<PlatformFile>?> pickMultipleFiles() async {
+    // Await the user's file selection, restricted to PDF, Word, and PPT files.
     FilePickerResult? result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
       type: FileType.custom,
-      allowedExtensions: ['pdf'],
+      allowedExtensions: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
     );
     
-    // Check if the user successfully selected a file
+    // Check if the user successfully selected files
     if(result == null) return null;
-    return result.files.single;
+    return result.files;
   }
   
   // Method to open the image picker dialog and select an image file.

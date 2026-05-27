@@ -82,11 +82,63 @@ class _HomePageState extends State<HomePage> {
                       // Access each category
                       final category = categories[index];
                       
-                      return CategoryCard(
-                        category: category,
-                        docCount: ShelfServices.countDocuments(category.id), 
-                        onTap: () => _openCategoryDetail(category), 
-                        onLongPress:() => _showOptions(context, category),
+                      return DragTarget<BookCategory>(
+                        onWillAcceptWithDetails: (details) => details.data.id != category.id,
+                        onAcceptWithDetails: (details) {
+                          _reorderCategories(details.data, category);
+                        },
+                        builder: (context, candidateData, rejectedData) {
+                          final isOver = candidateData.isNotEmpty;
+                          return LongPressDraggable<BookCategory>(
+                            data: category,
+                            feedback: Material(
+                              color: Colors.transparent,
+                              child: SizedBox(
+                                width: 90,
+                                height: 145,
+                                child: Opacity(
+                                  opacity: 0.85,
+                                  child: CategoryCard(
+                                    category: category,
+                                    docCount: ShelfServices.countDocuments(category.id),
+                                    onTap: () {},
+                                    onLongPress: () {},
+                                  ),
+                                ),
+                              ),
+                            ),
+                            childWhenDragging: Opacity(
+                              opacity: 0.35,
+                              child: CategoryCard(
+                                category: category,
+                                docCount: ShelfServices.countDocuments(category.id),
+                                onTap: () {},
+                                onLongPress: () {},
+                              ),
+                            ),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: isOver
+                                    ? [
+                                        BoxShadow(
+                                          color: AppTheme.accent.withValues(alpha: 0.5),
+                                          blurRadius: 8,
+                                          spreadRadius: 2,
+                                        )
+                                      ]
+                                    : [],
+                              ),
+                              child: CategoryCard(
+                                category: category,
+                                docCount: ShelfServices.countDocuments(category.id),
+                                onTap: () => _openCategoryDetail(category),
+                                onLongPress: () => _showOptions(context, category),
+                              ),
+                            ),
+                          );
+                        },
                       );
                     }
                   ),
@@ -106,6 +158,26 @@ class _HomePageState extends State<HomePage> {
     );
   }
   
+  // Reorder categories based on drag and drop
+  void _reorderCategories(BookCategory draggedCategory, BookCategory targetCategory) async {
+    final categories = ShelfServices.getCategories();
+    final fromIndex = categories.indexWhere((c) => c.id == draggedCategory.id);
+    final toIndex = categories.indexWhere((c) => c.id == targetCategory.id);
+    
+    if (fromIndex == -1 || toIndex == -1 || fromIndex == toIndex) return;
+    
+    setState(() {
+      final item = categories.removeAt(fromIndex);
+      categories.insert(toIndex, item);
+      
+      // Update order field for all categories
+      for (int i = 0; i < categories.length; i++) {
+        categories[i].order = i;
+        ShelfServices.updateCategory(categories[i]);
+      }
+    });
+  }
+
   // Add Category Dialog
   void _showAddCategory(BuildContext context) {    
     showDialog(
