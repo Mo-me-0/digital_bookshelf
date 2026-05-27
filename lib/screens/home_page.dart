@@ -4,6 +4,7 @@ import 'package:digital_bookshelf/services/shelf_services.dart';
 import 'package:digital_bookshelf/theme/app_theme.dart';
 import 'package:digital_bookshelf/widgets/category_card.dart';
 import 'package:digital_bookshelf/widgets/category_dialog.dart';
+import 'package:digital_bookshelf/widgets/category_search.dart';
 import 'package:digital_bookshelf/widgets/confirm_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -30,9 +31,11 @@ class _HomePageState extends State<HomePage> {
             const Text('My Bookshelf'),
           ],
         ),
+        
+        // Search button
         actions: [
           IconButton(
-            onPressed: () {},
+            onPressed: () => _showSearch(context),
             icon: Icon(Icons.search),
           ),
         ],
@@ -48,9 +51,26 @@ class _HomePageState extends State<HomePage> {
           // if there are no categories
           if(categories.isEmpty) {
             return Center(
-              child: Text('Your bookshelf is empty.\nTap + to add a category.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.shelves, 
+                    size: 80,
+                    color: AppTheme.primary.withValues(alpha: 0.25),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('Your bookshelf is empty.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  const Text('Tap + to add a category.',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ],
               ),
             );
           }
@@ -273,5 +293,9 @@ class _HomePageState extends State<HomePage> {
         },
       ),
     );
+  }
+  
+  void _showSearch(BuildContext context) {
+   showSearch(context: context, delegate: CategorySearch());
   }
 }
