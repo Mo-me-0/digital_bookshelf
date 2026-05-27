@@ -13,9 +13,9 @@ class PdfViewerPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(name),
       ),
+      
       // Render the PDF file
       body: SfPdfViewer.file(File(path)),
     );
