@@ -56,6 +56,16 @@ class ShelfServices {
     
   // To persist changes on existing category
   static Future<void> updateCategory(BookCategory category) => category.save();
+
+  // To batch update the order of all categories at once
+  static Future<void> updateCategoriesOrder(List<BookCategory> list) async {
+    final Map<String, BookCategory> map = {};
+    for (int i = 0; i < list.length; i++) {
+      list[i].order = i;
+      map[list[i].id] = list[i];
+    }
+    await _categories.putAll(map);
+  }
   
   // Remove category form storage box
   static Future<void> deleteCategory(String id) async {

@@ -61,6 +61,13 @@ class CategoryDetailPage extends StatelessWidget {
       pinned: true,
       backgroundColor: _spineColor,
       foregroundColor: Colors.white,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.delete_outline),
+          tooltip: 'Delete Category',
+          onPressed: () => _confirmDeleteCategory(context),
+        ),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         titlePadding: const EdgeInsets.fromLTRB(56, 0, 16, 14),
         
@@ -114,6 +121,24 @@ class CategoryDetailPage extends StatelessWidget {
                 ),
           ],
         ),
+      ),
+    );
+  }
+  
+  // Confirm and delete category from detail page
+  void _confirmDeleteCategory(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => ConfirmDialog(
+        title: 'Delete Category?',
+        message: '"${category.name}" and all its files will be permanently deleted.',
+        onPressed: () async {
+          Navigator.pop(context); // close dialog
+          await ShelfServices.deleteCategory(category.id);
+          if (context.mounted) {
+            Navigator.pop(context); // go back to home page
+          }
+        },
       ),
     );
   }

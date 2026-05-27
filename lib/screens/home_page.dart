@@ -4,6 +4,7 @@ import 'package:digital_bookshelf/services/shelf_services.dart';
 import 'package:digital_bookshelf/theme/app_theme.dart';
 import 'package:digital_bookshelf/widgets/category_card.dart';
 import 'package:digital_bookshelf/widgets/category_dialog.dart';
+import 'package:digital_bookshelf/widgets/confirm_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -90,6 +91,7 @@ class _HomePageState extends State<HomePage> {
                         builder: (context, candidateData, rejectedData) {
                           final isOver = candidateData.isNotEmpty;
                           return LongPressDraggable<BookCategory>(
+                            delay: const Duration(milliseconds: 150),
                             data: category,
                             feedback: Material(
                               color: Colors.transparent,
@@ -166,16 +168,12 @@ class _HomePageState extends State<HomePage> {
     
     if (fromIndex == -1 || toIndex == -1 || fromIndex == toIndex) return;
     
-    setState(() {
-      final item = categories.removeAt(fromIndex);
-      categories.insert(toIndex, item);
-      
-      // Update order field for all categories
-      for (int i = 0; i < categories.length; i++) {
-        categories[i].order = i;
-        ShelfServices.updateCategory(categories[i]);
-      }
-    });
+    // Reorder list in memory first for instant UI response
+    final item = categories.removeAt(fromIndex);
+    categories.insert(toIndex, item);
+    
+    // Batch write all category orders to Hive in one atomic update
+    await ShelfServices.updateCategoriesOrder(categories);
   }
 
   // Add Category Dialog
@@ -251,9 +249,19 @@ class _HomePageState extends State<HomePage> {
     );
   }
   
-  // Remove the category
-  void _deleteCategory(BuildContext context, BookCategory category) async {
-    Navigator.pop(context);
-    await ShelfServices.deleteCategory(category.id);
+  // Remove the category (with confirmation)
+  void _deleteCategory(BuildContext context, BookCategory category) {
+    Navigator.pop(context); // close bottom sheet
+    showDialog(
+      context: context,
+      builder: (context) => ConfirmDialog(
+        title: 'Delete Category?',
+        message: '"${category.name}" and all its files will be permanently deleted.',
+        onPressed: () async {
+          Navigator.pop(context);
+          await ShelfServices.deleteCategory(category.id);
+        },
+      ),
+    );
   }
 }
