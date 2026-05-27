@@ -7,15 +7,15 @@ import 'package:flutter/material.dart';
 class CategoryCard extends StatelessWidget {
   final BookCategory category;
   final int docCount;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
+  final VoidCallback? onTap;
+  final VoidCallback? onDoubleTap;
   
   const CategoryCard({
     super.key,
     required this.category,
     required this.docCount,
-    required this.onTap, // open category detail page
-    required this.onLongPress, // to edit or delete the category
+    this.onTap, // open category detail page
+    this.onDoubleTap, // to edit or delete the category
   });
   
   Color get _spineColor {
@@ -30,7 +30,7 @@ class CategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      onLongPress: onLongPress,
+      onDoubleTap: onDoubleTap,
       child: Column(
         children: [
           // Category Icon

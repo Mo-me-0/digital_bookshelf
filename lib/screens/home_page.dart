@@ -90,8 +90,9 @@ class _HomePageState extends State<HomePage> {
                         },
                         builder: (context, candidateData, rejectedData) {
                           final isOver = candidateData.isNotEmpty;
+                          
+                          // Long press dragging
                           return LongPressDraggable<BookCategory>(
-                            delay: const Duration(milliseconds: 150),
                             data: category,
                             feedback: Material(
                               color: Colors.transparent,
@@ -103,21 +104,21 @@ class _HomePageState extends State<HomePage> {
                                   child: CategoryCard(
                                     category: category,
                                     docCount: ShelfServices.countDocuments(category.id),
-                                    onTap: () {},
-                                    onLongPress: () {},
                                   ),
                                 ),
                               ),
                             ),
+                            
+                            // State of the category tile when dragging
                             childWhenDragging: Opacity(
                               opacity: 0.35,
                               child: CategoryCard(
                                 category: category,
                                 docCount: ShelfServices.countDocuments(category.id),
-                                onTap: () {},
-                                onLongPress: () {},
                               ),
                             ),
+                            
+                            // Indication for drop targates
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
                               decoration: BoxDecoration(
@@ -132,11 +133,13 @@ class _HomePageState extends State<HomePage> {
                                       ]
                                     : [],
                               ),
+                              
+                              // Default Category tile state
                               child: CategoryCard(
                                 category: category,
                                 docCount: ShelfServices.countDocuments(category.id),
                                 onTap: () => _openCategoryDetail(category),
-                                onLongPress: () => _showOptions(context, category),
+                                onDoubleTap: () => _showOptions(context, category),
                               ),
                             ),
                           );
@@ -168,12 +171,16 @@ class _HomePageState extends State<HomePage> {
     
     if (fromIndex == -1 || toIndex == -1 || fromIndex == toIndex) return;
     
-    // Reorder list in memory first for instant UI response
-    final item = categories.removeAt(fromIndex);
-    categories.insert(toIndex, item);
-    
-    // Batch write all category orders to Hive in one atomic update
-    await ShelfServices.updateCategoriesOrder(categories);
+    setState(() {
+      final item = categories.removeAt(fromIndex);
+      categories.insert(toIndex, item);
+      
+      // Update order field for all categories
+      for (int i = 0; i < categories.length; i++) {
+        categories[i].order = i;
+        ShelfServices.updateCategory(categories[i]);
+      }
+    });
   }
 
   // Add Category Dialog
@@ -241,6 +248,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
   
+  // Change name, icon or spine color of a category 
   void _editCategory(BuildContext context, BookCategory category) {
     Navigator.pop(context);
     showDialog(
@@ -249,17 +257,19 @@ class _HomePageState extends State<HomePage> {
     );
   }
   
-  // Remove the category (with confirmation)
-  void _deleteCategory(BuildContext context, BookCategory category) {
-    Navigator.pop(context); // close bottom sheet
+  // Confirm and delete category  
+  void _deleteCategory(BuildContext context, BookCategory category) async {
     showDialog(
       context: context,
       builder: (context) => ConfirmDialog(
         title: 'Delete Category?',
-        message: '"${category.name}" and all its files will be permanently deleted.',
+        message: '"${category.name.trim().isEmpty ? '???' : category.name}" and all its files will be permanently deleted.',
         onPressed: () async {
-          Navigator.pop(context);
+          Navigator.pop(context); // close dialog
           await ShelfServices.deleteCategory(category.id);
+          if (context.mounted) {
+            Navigator.pop(context); // close the options sheet
+          }
         },
       ),
     );
