@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:digital_bookshelf/models/book_category.dart';
+import 'package:digital_bookshelf/models/book_document.dart';
 import 'package:digital_bookshelf/screens/category_detail_page.dart';
 import 'package:digital_bookshelf/services/shelf_services.dart';
 import 'package:digital_bookshelf/theme/app_theme.dart';
@@ -286,6 +288,48 @@ class _HomePageState extends State<HomePage> {
         message: '"${category.name.trim().isEmpty ? '???' : category.name}" and all its files will be permanently deleted.',
         onPressed: () async {
           Navigator.pop(context); // close dialog
+          
+          // if the category have an image icon, delete it
+          if(category.imagePath != null) {
+            try {
+              // Get the image and delete it
+              final image = File(category.imagePath!);
+              if(await image.exists()) await image.delete();
+            } catch (e) {
+              // Show message if failed to delete the image
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error deleting file: $e'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          }
+          
+          // get all documents in that category
+          final docs = ShelfServices.getDocuments(category.id);
+          
+          if (docs.isNotEmpty) {          
+            try {
+              // delete all the files of that category from directory
+              for (BookDocument doc in docs) {
+                final file = File(doc.filePath);
+                if(await file.exists()) await file.delete();
+              }
+            } catch (e) {
+              // Show message if failed to delete the document
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error deleting file: $e'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          }
+          
+          // delete category from hive
           await ShelfServices.deleteCategory(category.id);
           if (context.mounted) {
             Navigator.pop(context); // close the options sheet

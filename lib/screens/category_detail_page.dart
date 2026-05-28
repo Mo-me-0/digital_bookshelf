@@ -11,9 +11,11 @@ import 'package:digital_bookshelf/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:digital_bookshelf/screens/pdf_viewer_page.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 class CategoryDetailPage extends StatelessWidget {
+  static const _uuid = Uuid();
   final BookCategory category;
   
   const CategoryDetailPage({ super.key,
@@ -132,13 +134,7 @@ class CategoryDetailPage extends StatelessWidget {
       builder: (context) => ConfirmDialog(
         title: 'Delete Category?',
         message: '"${category.name}" and all its files will be permanently deleted.',
-        onPressed: () async {
-          Navigator.pop(context); // close dialog
-          await ShelfServices.deleteCategory(category.id);
-          if (context.mounted) {
-            Navigator.pop(context); // go back to home page
-          }
-        },
+        onPressed: () => _deleteCategory(context),
       ),
     );
   }
@@ -225,7 +221,7 @@ class CategoryDetailPage extends StatelessWidget {
     }
   }
   
-  // Ask confirmation for deleting
+  // Ask confirmation for deleting a document
   void _confirmDelete(BuildContext context, BookDocument doc) {
     showDialog(
       context: context,
@@ -239,6 +235,10 @@ class CategoryDetailPage extends StatelessWidget {
         // confirm delete
         onPressed: () async {
           Navigator.pop(context);
+          // deletes the file from directory
+          final file = File(doc.filePath);
+          if(await file.exists()) await file.delete();
+          
           // deletes from database
           await ShelfServices.deleteDocument(doc.id);
         },
@@ -250,25 +250,84 @@ class CategoryDetailPage extends StatelessWidget {
   void _addDocuments() async {
     // show file picker dialog to pick multiple files
     final files = await FileServices.pickMultipleFiles();
-    
+
     // if no file selected
     if(files == null || files.isEmpty) return;
     
+    // Identify app's working diroctory
+    final appDir = await getApplicationDocumentsDirectory();
+    
+    // Apply for each selected document
     for (final file in files) {
       final ext = file.extension?.toLowerCase() ?? 'other';
+      
+      // Copies the file to Documents in working directory
+      final fileCopy = File('${appDir.path}/Documents/${_uuid.v4()}_${file.name}');
+      await File(file.path!).copy(fileCopy.path);
       
       // save the document in hive
       ShelfServices.addDocument(
         BookDocument(
-          id: const Uuid().v4(), // create unique id
+          id: _uuid.v4(), // create unique id
           name: file.name,
           categoryId: category.id,
-          filePath: file.path ?? '',
+          filePath: fileCopy.path,
           fileType: ext,
           addedAt: DateTime.now(),
           fileSizeBytes: file.size,
         )
       );
+    }
+  }
+
+  // Removes category from both database and working storage
+  Future<void> _deleteCategory(BuildContext context) async {
+    Navigator.pop(context); // close dialog
+
+    // if the category have an image icon, delete it
+    if(category.imagePath != null) {
+      try {
+        // Get the image and delete it
+        final image = File(category.imagePath!);
+        if(await image.exists()) await image.delete();
+      } catch (e) {
+        // Show message if failed to delete the image
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting file: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+
+    // get doments in that category
+    final docs = ShelfServices.getDocuments(category.id);
+
+    if (docs.isNotEmpty) {          
+      try {
+        // delete all the files of that category from directory
+        for (BookDocument doc in docs) {
+          final file = File(doc.filePath);
+          if(await file.exists()) await file.delete();
+        }
+      } catch (e) {
+        // Show message if failed to delete the document
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting file: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+    
+    // remove from hive
+    await ShelfServices.deleteCategory(category.id);
+    if (context.mounted) {
+      Navigator.pop(context); // go back to home page
     }
   }
 }

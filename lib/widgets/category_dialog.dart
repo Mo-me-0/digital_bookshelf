@@ -5,6 +5,8 @@ import 'package:digital_bookshelf/models/book_category.dart';
 import 'package:digital_bookshelf/theme/app_theme.dart';
 import 'package:digital_bookshelf/services/file_services.dart';
 import 'package:digital_bookshelf/services/shelf_services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 class CategoryDialog extends StatefulWidget {
@@ -19,9 +21,11 @@ class CategoryDialog extends StatefulWidget {
 }
 
 class _CategoryDialogState extends State<CategoryDialog> {
+  static const _uuid = Uuid();
   late final TextEditingController _controller;
   String? _categoryIcon;
   late int _colorIndex;
+  XFile? _selectedImage;
   
   // Convert Color object to string
   String _colorHex() {
@@ -34,6 +38,10 @@ class _CategoryDialogState extends State<CategoryDialog> {
   @override
   void initState() {
     super.initState();
+    
+    // Create the necessary directories
+    FileServices.initDirectory();
+    
     final existing = widget.existing; // for easy access
     
     // If editing an existing category, get that category data
@@ -74,8 +82,12 @@ class _CategoryDialogState extends State<CategoryDialog> {
           // To add an image
           GestureDetector(
             onTap: () async {
-              _categoryIcon = await FileServices.chooseImage();
-              setState(() {});
+              if(!mounted) return;
+              _selectedImage = await FileServices.chooseImage();
+              
+              setState(() {
+                _categoryIcon = _selectedImage?.path;
+              });
             },
             child: Container(
               width: 90,
@@ -210,15 +222,42 @@ class _CategoryDialogState extends State<CategoryDialog> {
         isEdit ? MaterialButton(
             color: AppTheme.primary,
             textColor: Colors.white,
-            onPressed: () {
+            onPressed: () async {
               final BookCategory category = widget.existing!;
               // Apply changes to existing category
               category.name = _controller.text.trim();
               category.colorHex = _colorHex();
-              category.imagePath = _categoryIcon;
+
+              if(category.imagePath != _categoryIcon) {
+                // Delete previous category image
+                if (category.imagePath != null) {
+                  final prevImage = File(category.imagePath!);
+                  if(await prevImage.exists()) await prevImage.delete();
+                }
+                
+                // Copy selected image
+                if(_selectedImage != null) {
+                  // Identify app working directory
+                  final appSrorage = await getApplicationDocumentsDirectory();
+                  
+                  // Create new file in 'Images' directory 
+                  final newFile = File('${appSrorage.path}/Images/${_uuid.v4()}_${_selectedImage!.name}');
+                  
+                  // Copy the selected(picked) file to prefered dir
+                  await File(_categoryIcon!).copy(newFile.path); 
+                  
+                  _categoryIcon = newFile.path; // refer to new path
+                }
+                
+                // Update category image path
+                category.imagePath = _categoryIcon;
+              }
               
               // save the changes made to hive
               ShelfServices.updateCategory(category);
+              
+              // Guard check for BuildContext 
+              if(!context.mounted) return;
               
               // close the dialog
               Navigator.pop(context);
@@ -230,19 +269,36 @@ class _CategoryDialogState extends State<CategoryDialog> {
         :  MaterialButton(
             color: AppTheme.primary,
             textColor: Colors.white,
-            onPressed: () {
+            onPressed: () async {
+              // Check if an image is selected
+              if(_selectedImage != null) {
+                // Identify app working directory
+                final appSrorage = await getApplicationDocumentsDirectory();
+                
+                // Create new file in 'Images' directory 
+                final newFile = File('${appSrorage.path}/Images/${_uuid.v4()}_${_selectedImage!.name}');
+                
+                // Copy the selected(picked) file to prefered dir
+                await File(_categoryIcon!).copy(newFile.path); 
+                
+                _categoryIcon = newFile.path; // refer to new path
+              }
+
               // save the created category to hive
               ShelfServices.addCategory(
                 // create a category with selected options
                 BookCategory(
-                  id: const Uuid().v4(), // create unique id  
+                  id: _uuid.v4(), // create unique id  
                   name: _controller.text.trim(), 
-                  imagePath: _categoryIcon,
+                  imagePath: _categoryIcon, // refers to the copied file
                   colorHex: _colorHex(), 
                   createdAt: DateTime.now(),
                   order: ShelfServices.getCategories().length,
                 )
               );
+              
+              // Guard check for BuildContext 
+              if(!context.mounted) return;
               
               // close the dialog
               Navigator.pop(context);
