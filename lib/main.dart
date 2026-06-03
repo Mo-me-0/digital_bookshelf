@@ -3,6 +3,9 @@ import 'package:digital_bookshelf/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:digital_bookshelf/screens/home_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,6 +14,14 @@ void main() async {
   
   // storage manager
   await ShelfServices.init();
+  
+  // initialize firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
+  // initialize google sign in
+  await GoogleSignIn.instance.initialize();
   
   // start the app
   runApp(const MyApp());

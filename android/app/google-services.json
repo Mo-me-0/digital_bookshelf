@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "189798641031",
+    "project_id": "digital-bookshelf-beb42",
+    "storage_bucket": "digital-bookshelf-beb42.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:189798641031:android:67b3ca21bc41526de0f722",
+        "android_client_info": {
+          "package_name": "com.example.digital_bookshelf"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "189798641031-cjft4edu8siq3f4cp5iu5fvr3pbdjbet.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.digital_bookshelf",
+            "certificate_hash": "0421e9026ab5ee676003ca4f0b640a0138b134d1"
+          }
+        },
+        {
+          "client_id": "189798641031-ms8icjlv5vrgtlpbc7viji6tsospggbk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAKFyH_T3I_MTn76uLtdv4boJJRv4vLSF8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "189798641031-ms8icjlv5vrgtlpbc7viji6tsospggbk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "189798641031-1bdh6aplmv69en4fnej2kd4k9pesk52k.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.digitalBookshelf"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
