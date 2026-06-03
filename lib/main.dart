@@ -1,10 +1,12 @@
+import 'package:digital_bookshelf/screens/main_screen.dart';
+import 'package:digital_bookshelf/services/google_drive_services.dart';
 import 'package:digital_bookshelf/services/shelf_services.dart';
 import 'package:digital_bookshelf/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:digital_bookshelf/screens/home_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -24,7 +26,14 @@ void main() async {
   await GoogleSignIn.instance.initialize();
   
   // start the app
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => GoogleDriveServices()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -36,7 +45,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'My Bookshelf',
       theme: AppTheme.light,
-      home: const HomePage(),
+      home: const MainScreen(),
     );
   }
 }

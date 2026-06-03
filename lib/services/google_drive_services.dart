@@ -31,7 +31,7 @@ class _BearerClient extends http.BaseClient {
 }
 
 // GoogleDriveSyncService
-class GoogleDriveService extends ChangeNotifier {
+class GoogleDriveServices extends ChangeNotifier {
   static const _appFolder = 'Digital Bookshelf';
   static const _docsFolder = 'documents';
   static const _imagesFolder = 'images';
@@ -74,13 +74,10 @@ class GoogleDriveService extends ChangeNotifier {
       );
 
       return drive.DriveApi(_BearerClient(auth.accessToken));
-    } on PlatformException catch (e) {
-      if (e.code == 'network_error') {
-        throw Exception('No internet connection. Please check your network and try again.');
-      } else if (e.code == 'sign_in_canceled' || e.code == 'sign_in_cancelled') {
-        throw Exception('Google Sign-In was cancelled. No account was chosen.');
-      }
-      throw Exception('Google Sign-In failed: ${e.message ?? e.code}');
+    } on PlatformException catch (_) {
+      throw Exception('No internet connection. Please check your network and try again.');
+    } on GoogleSignInException{
+      throw Exception('Google Sign-In was cancelled. No account was chosen.');
     } catch (e) {
       if (e.toString().contains('access_denied')) {
         throw Exception('Permission denied. You must grant Google Drive access to sync.');
@@ -180,119 +177,119 @@ class GoogleDriveService extends ChangeNotifier {
     isSyncing = true;
     notifyListeners();
     try {
-    _updateProgress('Connecting to Google Drive…');
-    final api = await _getDriveApi();
+      _updateProgress('Connecting to Google Drive…');
+      final api = await _getDriveApi();
 
-    _updateProgress('Preparing Drive folders…');
-    final rootId    = await _ensureFolder(api, _appFolder);
-    final docsId    = await _ensureFolder(api, _docsFolder,   parentId: rootId);
-    final imagesId  = await _ensureFolder(api, _imagesFolder, parentId: rootId);
+      _updateProgress('Preparing Drive folders…');
+      final rootId    = await _ensureFolder(api, _appFolder);
+      final docsId    = await _ensureFolder(api, _docsFolder,   parentId: rootId);
+      final imagesId  = await _ensureFolder(api, _imagesFolder, parentId: rootId);
 
-    final categories = ShelfServices.getCategories();
-    final allDocs = <BookDocument>[
-      for (final c in categories) ...ShelfServices.getDocuments(c.id),
-    ];
+      final categories = ShelfServices.getCategories();
+      final allDocs = <BookDocument>[
+        for (final c in categories) ...ShelfServices.getDocuments(c.id),
+      ];
 
-    _updateProgress(
-      'Found ${categories.length} ${categories.length == 1 ? "category" : "categories"} '
-      'and ${allDocs.length} ${allDocs.length == 1 ? "document" : "documents"}.',
-    );
+      _updateProgress(
+        'Found ${categories.length} ${categories.length == 1 ? "category" : "categories"} '
+        'and ${allDocs.length} ${allDocs.length == 1 ? "document" : "documents"}.',
+      );
 
-    // Upload category cover images
-    final Map<String, String> catImageIds = {};
+      // Upload category cover images
+      final Map<String, String> catImageIds = {};
 
-    for (int i = 0; i < categories.length; i++) {
-      final cat = categories[i];
-      _updateProgress('Category ${i + 1}/${categories.length}: "${cat.name}"');
+      for (int i = 0; i < categories.length; i++) {
+        final cat = categories[i];
+        _updateProgress('Category ${i + 1}/${categories.length}: "${cat.name}"');
 
-      if (cat.imagePath != null) {
-        final f = File(cat.imagePath!);
+        if (cat.imagePath != null) {
+          final f = File(cat.imagePath!);
+          if (await f.exists()) {
+            _updateProgress('  Uploading cover image…');
+            final ext = cat.imagePath!.split('.').last.toLowerCase();
+            final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+            final fileName = '${cat.id}.$ext';
+            final existingId = await _findFile(api, fileName, imagesId);
+            catImageIds[cat.id] = await _upload(
+              api,
+              bytes: await f.readAsBytes(),
+              name: fileName,
+              mimeType: mime,
+              folderId: imagesId,
+              existingId: existingId,
+            );
+          }
+        }
+      }
+
+      // Upload document files 
+      final Map<String, String> docFileIds = {};
+
+      for (int i = 0; i < allDocs.length; i++) {
+        final doc = allDocs[i];
+        _updateProgress('Document ${i + 1}/${allDocs.length}: "${doc.name}"');
+
+        final f = File(doc.filePath);
         if (await f.exists()) {
-          _updateProgress('  Uploading cover image…');
-          final ext = cat.imagePath!.split('.').last.toLowerCase();
-          final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
-          final fileName = '${cat.id}.$ext';
-          final existingId = await _findFile(api, fileName, imagesId);
-          catImageIds[cat.id] = await _upload(
+          _updateProgress('  Uploading file…');
+          final fileName = '${doc.id}.${doc.fileType}';
+          final existingId = await _findFile(api, fileName, docsId);
+          docFileIds[doc.id] = await _upload(
             api,
             bytes: await f.readAsBytes(),
             name: fileName,
-            mimeType: mime,
-            folderId: imagesId,
+            mimeType: 'application/octet-stream',
+            folderId: docsId,
             existingId: existingId,
           );
+        } else {
+          _updateProgress('  File not found locally, skipping upload.');
         }
       }
-    }
 
-    // Upload document files 
-    final Map<String, String> docFileIds = {};
+      // Upload metadata JSON
+      _updateProgress('Saving metadata…');
 
-    for (int i = 0; i < allDocs.length; i++) {
-      final doc = allDocs[i];
-      _updateProgress('Document ${i + 1}/${allDocs.length}: "${doc.name}"');
+      final metadata = {
+        'exportedAt': DateTime.now().toIso8601String(),
+        'categories': [
+          for (final c in categories)
+            {
+              'id': c.id,
+              'name': c.name,
+              'colorHex': c.colorHex,
+              'createdAt': c.createdAt.toIso8601String(),
+              'order': c.order,
+              'localImagePath': c.imagePath,
+              'driveImageId': catImageIds[c.id],
+            },
+        ],
+        'documents': [
+          for (final d in allDocs)
+            {
+              'id': d.id,
+              'categoryId': d.categoryId,
+              'name': d.name,
+              'fileType': d.fileType,
+              'addedAt': d.addedAt.toIso8601String(),
+              'fileSizeBytes': d.fileSizeBytes,
+              'driveFileId': docFileIds[d.id],
+            },
+        ],
+      };
 
-      final f = File(doc.filePath);
-      if (await f.exists()) {
-        _updateProgress('  Uploading file…');
-        final fileName = '${doc.id}.${doc.fileType}';
-        final existingId = await _findFile(api, fileName, docsId);
-        docFileIds[doc.id] = await _upload(
-          api,
-          bytes: await f.readAsBytes(),
-          name: fileName,
-          mimeType: 'application/octet-stream',
-          folderId: docsId,
-          existingId: existingId,
-        );
-      } else {
-        _updateProgress('  File not found locally, skipping upload.');
-      }
-    }
+      final jsonBytes = utf8.encode(jsonEncode(metadata));
+      final existingMetaId = await _findFile(api, _metaFile, rootId);
+      await _upload(
+        api,
+        bytes: jsonBytes,
+        name: _metaFile,
+        mimeType: 'application/json',
+        folderId: rootId,
+        existingId: existingMetaId,
+      );
 
-    // Upload metadata JSON
-    _updateProgress('Saving metadata…');
-
-    final metadata = {
-      'exportedAt': DateTime.now().toIso8601String(),
-      'categories': [
-        for (final c in categories)
-          {
-            'id': c.id,
-            'name': c.name,
-            'colorHex': c.colorHex,
-            'createdAt': c.createdAt.toIso8601String(),
-            'order': c.order,
-            'localImagePath': c.imagePath,
-            'driveImageId': catImageIds[c.id],
-          },
-      ],
-      'documents': [
-        for (final d in allDocs)
-          {
-            'id': d.id,
-            'categoryId': d.categoryId,
-            'name': d.name,
-            'fileType': d.fileType,
-            'addedAt': d.addedAt.toIso8601String(),
-            'fileSizeBytes': d.fileSizeBytes,
-            'driveFileId': docFileIds[d.id],
-          },
-      ],
-    };
-
-    final jsonBytes = utf8.encode(jsonEncode(metadata));
-    final existingMetaId = await _findFile(api, _metaFile, rootId);
-    await _upload(
-      api,
-      bytes: jsonBytes,
-      name: _metaFile,
-      mimeType: 'application/json',
-      folderId: rootId,
-      existingId: existingMetaId,
-    );
-
-    _updateProgress('Sync complete! ✓');
+      _updateProgress('Sync complete!');
     } finally {
       isSyncing = false;
       notifyListeners();
@@ -419,7 +416,7 @@ class GoogleDriveService extends ChangeNotifier {
       }
     }
 
-    _updateProgress('Restore complete! ✓');
+    _updateProgress('Restore complete!');
     } finally {
       isRestoring = false;
       notifyListeners();

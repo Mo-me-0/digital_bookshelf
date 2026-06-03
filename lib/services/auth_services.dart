@@ -24,19 +24,15 @@ class AuthServices {
 
       // Create a new credential
       final credential = GoogleAuthProvider.credential(
-        // accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
       // Once signed in, return the UserCredential
       return await _auth.signInWithCredential(credential);
-    } on PlatformException catch (e) {
-      if (e.code == 'network_error') {
-        throw Exception('No internet connection. Please check your network and try again.');
-      } else if (e.code == 'sign_in_canceled' || e.code == 'sign_in_cancelled') {
-        throw Exception('Google Sign-In was cancelled. No account was chosen.');
-      }
-      throw Exception('Google Sign-In failed: ${e.message ?? e.code}');
+    } on PlatformException catch (_) {
+      throw Exception('No internet connection. Please check your network and try again.');
+    } on GoogleSignInException{
+      throw Exception('Google Sign-In was cancelled. No account was chosen.');
     } catch (e) {
       rethrow;
     }
