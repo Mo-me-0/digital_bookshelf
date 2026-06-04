@@ -1,17 +1,10 @@
-# digital_bookshelf
+# Digital Bookshelf
 
-A new Flutter project.
+## Group members
+1. Fitsume Ngussie	ATE/4123/15
+2. Mihretu Tesema 	ATE/1022/15
+3. Mussie Workneh	ATE/9096/15
+4. Yonathan Tatek	ATE/6955/15
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Description
+- Digital bookshelf is an app that lets the user catagorise and organise their documents. The user can create categories, add documents, sign-in with google, sync those documents and categories to their google drive.
